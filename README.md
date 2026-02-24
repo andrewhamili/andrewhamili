@@ -392,6 +392,153 @@ Startup experience building production systems with limited resources while main
 
 ---
 
+## 🛡️ Can You Build a VPN Server with Java Spring Boot or Node.js?
+
+**Short answer: Yes, it is possible — with the right approach.**
+
+A VPN (Virtual Private Network) server relies on low-level networking: tunneling, encryption, and packet routing. While Java Spring Boot and Node.js are primarily application-layer frameworks, they can serve as the **control plane** and **API layer** of a VPN solution, while leveraging OS-level tools for the data plane.
+
+---
+
+### 🔧 Architecture Overview
+
+```
+Client Device
+     │
+     ▼
+[TUN/TAP Interface] ──── encrypted tunnel ────▶ [VPN Server]
+                                                      │
+                                         ┌────────────┼────────────┐
+                                         ▼            ▼            ▼
+                                   [Spring Boot   [Node.js    [OS Kernel
+                                    REST API]      Control]   TUN/TAP]
+```
+
+---
+
+### ☕ Java Spring Boot Approach
+
+Spring Boot can orchestrate a VPN server by:
+- Exposing REST endpoints for client authentication and key exchange
+- Managing peer sessions and certificates (e.g., via **Bouncy Castle** crypto library)
+- Integrating with **WireGuard** or **OpenVPN** via process execution (`ProcessBuilder`)
+- Handling user/device registration and revocation
+
+**Example: Triggering WireGuard peer registration via Spring Boot**
+
+```java
+@RestController
+@RequestMapping("/api/vpn")
+public class VpnController {
+
+    // Validate WireGuard public key (44-character Base64) and CIDR notation
+    private static final Pattern PUBLIC_KEY_PATTERN = Pattern.compile("^[A-Za-z0-9+/]{43}=$");
+    private static final Pattern CIDR_PATTERN = Pattern.compile(
+        "^((25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)/([0-9]|[1-2][0-9]|3[0-2])$"
+    );
+
+    @PostMapping("/peers")
+    public ResponseEntity<String> addPeer(@RequestBody PeerRequest request) {
+        if (!PUBLIC_KEY_PATTERN.matcher(request.getPublicKey()).matches()) {
+            return ResponseEntity.badRequest().body("Invalid public key format");
+        }
+        if (!CIDR_PATTERN.matcher(request.getAllowedIps()).matches()) {
+            return ResponseEntity.badRequest().body("Invalid allowed-ips CIDR format");
+        }
+        try {
+            // Use list form to avoid shell injection — arguments are never interpreted by a shell
+            ProcessBuilder pb = new ProcessBuilder(
+                "wg", "set", "wg0",
+                "peer", request.getPublicKey(),
+                "allowed-ips", request.getAllowedIps()
+            );
+            pb.inheritIO();
+            Process process = pb.start();
+            int exitCode = process.waitFor();
+            if (exitCode != 0) {
+                return ResponseEntity.internalServerError().body("wg command failed with exit code: " + exitCode);
+            }
+            return ResponseEntity.ok("Peer added successfully");
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Failed: " + e.getMessage());
+        }
+    }
+}
+```
+
+**Key Libraries**:
+- `Bouncy Castle` – cryptography (TLS, key generation)
+- `Spring Security` – authentication and authorization
+- `Netty` – low-level TCP/UDP networking (for custom tunnel protocol)
+
+---
+
+### 🟩 Node.js Approach
+
+Node.js is well-suited for the control plane and can interact with OS networking tools directly:
+
+```js
+// Example: Node.js Express API to manage WireGuard peers
+const express = require('express');
+const { execFile } = require('child_process');
+const app = express();
+app.use(express.json());
+
+// Validate WireGuard public key (44-character Base64) and CIDR notation
+const PUBLIC_KEY_RE = /^[A-Za-z0-9+/]{43}=$/;
+const CIDR_RE = /^(\d{1,3}\.){3}\d{1,3}\/([0-9]|[1-2][0-9]|3[0-2])$/;
+
+app.post('/api/vpn/peers', (req, res) => {
+  const { publicKey, allowedIps } = req.body;
+
+  if (!PUBLIC_KEY_RE.test(publicKey)) {
+    return res.status(400).json({ error: 'Invalid public key format' });
+  }
+  if (!CIDR_RE.test(allowedIps)) {
+    return res.status(400).json({ error: 'Invalid allowed-ips CIDR format' });
+  }
+
+  // Use execFile (not exec) to avoid shell interpretation — args are passed directly
+  execFile('wg', ['set', 'wg0', 'peer', publicKey, 'allowed-ips', allowedIps], (error, stdout, stderr) => {
+    if (error) {
+      return res.status(500).json({ error: stderr });
+    }
+    res.json({ message: 'Peer added successfully' });
+  });
+});
+
+app.listen(3000, () => console.log('VPN Control API running on port 3000'));
+```
+
+**Key Libraries**:
+- `node-forge` / `crypto` – TLS and key management
+- `net` / `dgram` – raw TCP/UDP socket programming
+- `@grpc/grpc-js` – for high-performance control-plane communication
+
+---
+
+### 🔐 Recommended Stack for a Production VPN Server
+
+| Layer | Technology |
+|-------|-----------|
+| **Tunneling Protocol** | WireGuard (kernel-level, fastest) or OpenVPN |
+| **Control Plane API** | Java Spring Boot or Node.js (NestJS) |
+| **Authentication** | JWT + mTLS or Auth0 / Firebase Auth |
+| **Key Management** | Bouncy Castle (Java) / node-forge (Node.js) |
+| **Infrastructure** | AWS EC2 / DigitalOcean Droplet with TUN support |
+| **Containerization** | Docker (with `--cap-add=NET_ADMIN` for TUN/TAP) |
+
+---
+
+### ⚠️ Important Considerations
+
+- **Kernel-level tunneling** (TUN/TAP) requires root/admin privileges and is not handled by Spring Boot or Node.js directly — use WireGuard or OpenVPN for this layer.
+- **Docker deployments** need `--cap-add=NET_ADMIN --device /dev/net/tun` for TUN interface access.
+- **Production VPN servers** should follow security best practices: certificate rotation, rate limiting, audit logging, and minimal attack surface.
+- **Regulatory compliance** may apply depending on your region and use case.
+
+---
+
 ## 📌 Quick Facts
 
 - **Total Experience**: 8+ years (2017-2026)
