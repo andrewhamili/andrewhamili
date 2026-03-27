@@ -40,7 +40,7 @@ Building geospatial intelligence platform for field research operations
 
 ---
 
-### **2025** | Software Developer | ZKidz (Startup)
+### **2025** | Software Developer | ZKidz Dev (Startup)
 *Part-Time Freelance*
 
 Led mobile development for emerging startup venture
@@ -269,7 +269,7 @@ JIRA (Agile/Scrum)
 - UI/UX implementation
 
 ### **Startup to Enterprise**
-- Built production systems from scratch (Loademy, ZKidz)
+- Built production systems from scratch (Loademy, ZKidz Dev)
 - Enterprise solutions (Union Bank, Inoviti, Manufacturing)
 - Successfully balanced multiple concurrent roles
 
@@ -351,7 +351,7 @@ Startup experience building production systems with limited resources while main
 
 2024-2026 → Mid Frontend Developer (Manufacturing)
             + Part-Time Developer (PSRC)
-            + Part-Time Developer (ZKidz)
+            + Part-Time Developer (ZKidz Dev)
             Mastery: VueJS, NestJS, Multiple concurrent projects
 ```
 
